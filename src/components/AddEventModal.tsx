@@ -53,6 +53,15 @@ const WEEKDAYS = [
   { value: 6, label: 'Saturday' },
 ];
 
+interface FormData {
+  title: string;
+  date: string;
+  description: string;
+  recurrence: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+  color: string;
+  category: string;
+}
+
 export default function AddEventModal({ 
   isOpen, 
   onClose, 
@@ -65,11 +74,11 @@ export default function AddEventModal({
 }: AddEventModalProps) {
   const isEditing = !!editingEvent;
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     title: '',
     date: selectedDate.toISOString().slice(0, 16), // Format for datetime-local input
     description: '',
-    recurrence: 'none' as const,
+    recurrence: 'none',
     color: '#3B82F6',
     category: '',
   });
@@ -344,7 +353,7 @@ export default function AddEventModal({
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Every {recurrenceRule.interval || 1} {formData.recurrence === 'weekly' ? 'week(s)' : 'month(s)'}
+                      Every {recurrenceRule.interval || 1} {recurrenceRule.type === 'weekly' ? 'week(s)' : 'month(s)'}
                     </p>
                   </div>
                 )}
