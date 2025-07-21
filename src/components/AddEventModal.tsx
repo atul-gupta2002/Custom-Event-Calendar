@@ -246,7 +246,7 @@ export default function AddEventModal({
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter event title"
+                placeholder="What's your event called?"
                 required
               />
             </div>
@@ -277,7 +277,7 @@ export default function AddEventModal({
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter event description"
+                placeholder="Tell us more about your event..."
               />
             </div>
 
@@ -400,7 +400,7 @@ export default function AddEventModal({
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Work, Personal, Meeting"
+                placeholder="e.g., Work, Personal, Meeting, Birthday, Holiday"
               />
             </div>
 

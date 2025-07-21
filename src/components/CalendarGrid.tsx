@@ -47,7 +47,7 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
   };
 
   // Get events for a specific date (including recurring instances)
-  const getEventsForDate = (date: Date) => {
+  const getEventsForDateLocal = (date: Date) => {
     return getEventsForDate(date, events);
   };
 
@@ -233,7 +233,7 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
         {/* Calendar Days */}
         <div className="grid grid-cols-7">
           {calendarDays.map((date, index) => {
-            const dayEvents = date ? getEventsForDate(date) : [];
+            const dayEvents = date ? getEventsForDateLocal(date) : [];
             const isDragOver = dragOverDate && date && 
               dragOverDate.getDate() === date.getDate() &&
               dragOverDate.getMonth() === date.getMonth() &&
