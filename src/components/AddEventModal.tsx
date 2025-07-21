@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface Event {
   id: string;
@@ -17,6 +17,9 @@ interface AddEventModalProps {
   onClose: () => void;
   selectedDate: Date;
   onAddEvent: (event: Omit<Event, 'id'>) => void;
+  onUpdateEvent?: (event: Event) => void;
+  onDeleteEvent?: (eventId: string) => void;
+  editingEvent?: Event | null;
 }
 
 const EVENT_COLORS = [
@@ -37,7 +40,17 @@ const RECURRENCE_OPTIONS = [
   { value: 'custom', label: 'Custom' },
 ];
 
-export default function AddEventModal({ isOpen, onClose, selectedDate, onAddEvent }: AddEventModalProps) {
+export default function AddEventModal({ 
+  isOpen, 
+  onClose, 
+  selectedDate, 
+  onAddEvent, 
+  onUpdateEvent, 
+  onDeleteEvent,
+  editingEvent 
+}: AddEventModalProps) {
+  const isEditing = !!editingEvent;
+  
   const [formData, setFormData] = useState({
     title: '',
     date: selectedDate.toISOString().slice(0, 16), // Format for datetime-local input
@@ -47,30 +60,63 @@ export default function AddEventModal({ isOpen, onClose, selectedDate, onAddEven
     category: '',
   });
 
+  // Update form data when editing event changes
+  useEffect(() => {
+    if (editingEvent) {
+      setFormData({
+        title: editingEvent.title,
+        date: editingEvent.date.toISOString().slice(0, 16),
+        description: editingEvent.description,
+        recurrence: editingEvent.recurrence,
+        color: editingEvent.color,
+        category: editingEvent.category || '',
+      });
+    } else {
+      setFormData({
+        title: '',
+        date: selectedDate.toISOString().slice(0, 16),
+        description: '',
+        recurrence: 'none',
+        color: '#3B82F6',
+        category: '',
+      });
+    }
+  }, [editingEvent, selectedDate]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newEvent = {
-      title: formData.title,
-      date: new Date(formData.date),
-      description: formData.description,
-      recurrence: formData.recurrence,
-      color: formData.color,
-      category: formData.category || undefined,
-    };
-
-    onAddEvent(newEvent);
-    onClose();
+    if (isEditing && editingEvent && onUpdateEvent) {
+      const updatedEvent: Event = {
+        ...editingEvent,
+        title: formData.title,
+        date: new Date(formData.date),
+        description: formData.description,
+        recurrence: formData.recurrence,
+        color: formData.color,
+        category: formData.category || undefined,
+      };
+      onUpdateEvent(updatedEvent);
+    } else {
+      const newEvent = {
+        title: formData.title,
+        date: new Date(formData.date),
+        description: formData.description,
+        recurrence: formData.recurrence,
+        color: formData.color,
+        category: formData.category || undefined,
+      };
+      onAddEvent(newEvent);
+    }
     
-    // Reset form
-    setFormData({
-      title: '',
-      date: selectedDate.toISOString().slice(0, 16),
-      description: '',
-      recurrence: 'none',
-      color: '#3B82F6',
-      category: '',
-    });
+    onClose();
+  };
+
+  const handleDelete = () => {
+    if (isEditing && editingEvent && onDeleteEvent) {
+      onDeleteEvent(editingEvent.id);
+      onClose();
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -87,7 +133,9 @@ export default function AddEventModal({ isOpen, onClose, selectedDate, onAddEven
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">Add New Event</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              {isEditing ? 'Edit Event' : 'Add New Event'}
+            </h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
@@ -202,6 +250,15 @@ export default function AddEventModal({ isOpen, onClose, selectedDate, onAddEven
 
             {/* Form Actions */}
             <div className="flex space-x-3 pt-4">
+              {isEditing && onDeleteEvent && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                >
+                  Delete
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onClose}
@@ -213,7 +270,7 @@ export default function AddEventModal({ isOpen, onClose, selectedDate, onAddEven
                 type="submit"
                 className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
               >
-                Add Event
+                {isEditing ? 'Update Event' : 'Add Event'}
               </button>
             </div>
           </form>

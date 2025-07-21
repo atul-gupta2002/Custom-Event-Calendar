@@ -15,6 +15,7 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
   // Get the first day of the current month
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -80,7 +81,8 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
 
   const handleEventClick = (event: Event, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent date click
-    setSelectedEvent(event);
+    setEditingEvent(event); // Open in edit mode instead of just viewing
+    setSelectedEvent(null); // Close any open event display
   };
 
   const handleAddEvent = (eventData: Omit<Event, 'id'>) => {
@@ -89,6 +91,18 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
       id: Date.now().toString(), // Simple ID generation
     };
     setEvents(prev => [...prev, newEvent]);
+  };
+
+  const handleUpdateEvent = (updatedEvent: Event) => {
+    setEvents(prev => prev.map(event => 
+      event.id === updatedEvent.id ? updatedEvent : event
+    ));
+    setEditingEvent(null);
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    setEvents(prev => prev.filter(event => event.id !== eventId));
+    setEditingEvent(null);
   };
 
   const formatMonthYear = (date: Date) => {
@@ -167,12 +181,22 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
                   {dayEvents.slice(0, 3).map((event) => (
                     <div
                       key={event.id}
-                      className="text-xs p-1 rounded truncate text-white font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                      className="text-xs p-1 rounded truncate text-white font-medium cursor-pointer hover:opacity-80 transition-opacity relative group"
                       style={{ backgroundColor: event.color }}
                       title={`${event.title} - ${formatTime(event.date)}`}
                       onClick={(e) => handleEventClick(event, e)}
                     >
                       {event.title}
+                      <button
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full text-gray-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEvent(event);
+                        }}
+                        title="View details"
+                      >
+                        ℹ
+                      </button>
                     </div>
                   ))}
                   {dayEvents.length > 3 && (
@@ -187,12 +211,18 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
         </div>
       </div>
 
-      {/* Add Event Modal */}
+      {/* Add/Edit Event Modal */}
       <AddEventModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isModalOpen || !!editingEvent}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEvent(null);
+        }}
         selectedDate={modalDate}
         onAddEvent={handleAddEvent}
+        onUpdateEvent={handleUpdateEvent}
+        onDeleteEvent={handleDeleteEvent}
+        editingEvent={editingEvent}
       />
 
       {/* Event Display Modal */}
@@ -200,6 +230,10 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
         <EventDisplay
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
+          onEdit={(event) => {
+            setEditingEvent(event);
+            setSelectedEvent(null);
+          }}
         />
       )}
     </div>

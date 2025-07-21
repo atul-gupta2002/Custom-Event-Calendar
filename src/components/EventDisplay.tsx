@@ -5,9 +5,10 @@ import { Event } from './AddEventModal';
 interface EventDisplayProps {
   event: Event;
   onClose: () => void;
+  onEdit?: (event: Event) => void;
 }
 
-export default function EventDisplay({ event, onClose }: EventDisplayProps) {
+export default function EventDisplay({ event, onClose, onEdit }: EventDisplayProps) {
   const formatDateTime = (date: Date) => {
     return date.toLocaleString('en-US', {
       weekday: 'long',
@@ -82,7 +83,15 @@ export default function EventDisplay({ event, onClose }: EventDisplayProps) {
             </div>
           </div>
 
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end space-x-3 mt-6">
+            {onEdit && (
+              <button
+                onClick={() => onEdit(event)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                Edit Event
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
