@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RecurrenceRule } from '@/utils/recurrenceUtils';
+import { RecurrenceRule, checkEventConflict } from '@/utils/recurrenceUtils';
 
 export interface Event {
   id: string;
@@ -119,8 +119,6 @@ export default function AddEventModal({
         recurrenceRule,
       };
 
-      // Import checkEventConflict function
-      const { checkEventConflict } = require('@/utils/recurrenceUtils');
       const conflicts = checkEventConflict(newEvent, existingEvents, editingEvent?.id);
       setConflicts(conflicts);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import AddEventModal, { Event } from './AddEventModal';
 import EventDisplay from './EventDisplay';
 import Toast from './Toast';
@@ -12,7 +12,7 @@ interface CalendarGridProps {
 }
 
 export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGridProps) {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState(new Date());
@@ -77,7 +77,6 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
   const calendarDays = generateCalendarDays();
 
   const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
     setModalDate(date);
     setIsModalOpen(true);
     onDateSelect?.(date);

@@ -17,7 +17,6 @@ export interface RecurringEvent extends Event {
 export function generateRecurringEvents(
   originalEvent: Event,
   recurrenceRule: RecurrenceRule,
-  startDate: Date = new Date(),
   endDate: Date = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year from now
 ): Event[] {
   const events: Event[] = [];
