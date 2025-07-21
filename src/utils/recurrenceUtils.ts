@@ -1,7 +1,7 @@
 import { Event } from '@/components/AddEventModal';
 
 export interface RecurrenceRule {
-  type: 'daily' | 'weekly' | 'monthly' | 'custom';
+  type: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
   interval?: number; // For custom: every X weeks/months
   weekdays?: number[]; // For weekly: [0,1,2,3,4,5,6] (Sunday=0)
   endDate?: Date; // Optional end date for recurring events
@@ -36,6 +36,8 @@ export function generateRecurringEvents(
     let nextDate: Date;
     
     switch (recurrenceRule.type) {
+      case 'none':
+        return events; // No recurrence
       case 'daily':
         nextDate = new Date(currentDate);
         nextDate.setDate(nextDate.getDate() + 1);
