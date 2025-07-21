@@ -9,9 +9,11 @@ import { generateRecurringEvents, getEventsForDate, checkEventConflict } from '@
 interface CalendarGridProps {
   currentDate: Date;
   onDateSelect?: (date: Date) => void;
+  onPreviousMonth?: () => void;
+  onNextMonth?: () => void;
 }
 
-export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGridProps) {
+export default function CalendarGrid({ currentDate, onDateSelect, onPreviousMonth, onNextMonth }: CalendarGridProps) {
 
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -209,10 +211,16 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
           {formatMonthYear(currentDate)}
         </h2>
         <div className="flex space-x-2">
-          <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+          <button 
+            onClick={onPreviousMonth}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
             Previous Month
           </button>
-          <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+          <button 
+            onClick={onNextMonth}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
             Next Month
           </button>
         </div>
