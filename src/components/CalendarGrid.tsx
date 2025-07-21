@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import AddEventModal, { Event } from './AddEventModal';
 import EventDisplay from './EventDisplay';
+import Toast from './Toast';
+import { generateRecurringEvents, getEventsForDate, checkEventConflict } from '@/utils/recurrenceUtils';
 
 interface CalendarGridProps {
   currentDate: Date;
@@ -16,6 +18,13 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
   const [modalDate, setModalDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [draggedEvent, setDraggedEvent] = useState<Event | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info'; isVisible: boolean }>({
+    message: '',
+    type: 'info',
+    isVisible: false,
+  });
 
   // Get the first day of the current month
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -37,14 +46,9 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
            date.getFullYear() === today.getFullYear();
   };
 
-  // Get events for a specific date
+  // Get events for a specific date (including recurring instances)
   const getEventsForDate = (date: Date) => {
-    return events.filter(event => {
-      const eventDate = new Date(event.date);
-      return eventDate.getDate() === date.getDate() &&
-             eventDate.getMonth() === date.getMonth() &&
-             eventDate.getFullYear() === date.getFullYear();
-    });
+    return getEventsForDate(date, events);
   };
 
   // Generate calendar grid
@@ -90,19 +94,97 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
       ...eventData,
       id: Date.now().toString(), // Simple ID generation
     };
-    setEvents(prev => [...prev, newEvent]);
+
+    // Generate recurring events if needed
+    let allEvents = [newEvent];
+    if (eventData.recurrenceRule && eventData.recurrenceRule.type !== 'none') {
+      const recurringEvents = generateRecurringEvents(newEvent, eventData.recurrenceRule);
+      allEvents = recurringEvents;
+    }
+
+    setEvents(prev => [...prev, ...allEvents]);
   };
 
   const handleUpdateEvent = (updatedEvent: Event) => {
-    setEvents(prev => prev.map(event => 
-      event.id === updatedEvent.id ? updatedEvent : event
-    ));
+    // Remove all instances of this event (including recurring ones)
+    const filteredEvents = events.filter(event => 
+      !event.id.startsWith(updatedEvent.id + '_') && event.id !== updatedEvent.id
+    );
+
+    // Generate new recurring events if needed
+    let allEvents = [updatedEvent];
+    if (updatedEvent.recurrenceRule && updatedEvent.recurrenceRule.type !== 'none') {
+      const recurringEvents = generateRecurringEvents(updatedEvent, updatedEvent.recurrenceRule);
+      allEvents = recurringEvents;
+    }
+
+    setEvents([...filteredEvents, ...allEvents]);
     setEditingEvent(null);
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    setEvents(prev => prev.filter(event => event.id !== eventId));
+    // Remove all instances of this recurring event
+    const filteredEvents = events.filter(event => 
+      !event.id.startsWith(eventId + '_') && event.id !== eventId
+    );
+    setEvents(filteredEvents);
     setEditingEvent(null);
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (event: Event, e: React.DragEvent) => {
+    e.stopPropagation();
+    setDraggedEvent(event);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (date: Date, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverDate(date);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDate(null);
+  };
+
+  const handleDrop = (targetDate: Date, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (draggedEvent) {
+      // Check for conflicts at the new date/time
+      const newEventDate = new Date(targetDate);
+      newEventDate.setHours(draggedEvent.date.getHours());
+      newEventDate.setMinutes(draggedEvent.date.getMinutes());
+
+      const updatedEvent: Event = {
+        ...draggedEvent,
+        date: newEventDate,
+      };
+
+      const conflicts = checkEventConflict(updatedEvent, events, draggedEvent.id);
+      
+      if (conflicts.length === 0) {
+        // Update the event
+        handleUpdateEvent(updatedEvent);
+        setToast({
+          message: 'Event moved successfully!',
+          type: 'success',
+          isVisible: true,
+        });
+      } else {
+        // Show conflict warning
+        setToast({
+          message: `Cannot move event: conflicts with ${conflicts.length} existing event(s)`,
+          type: 'error',
+          isVisible: true,
+        });
+      }
+    }
+
+    setDraggedEvent(null);
+    setDragOverDate(null);
   };
 
   const formatMonthYear = (date: Date) => {
@@ -152,6 +234,10 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
         <div className="grid grid-cols-7">
           {calendarDays.map((date, index) => {
             const dayEvents = date ? getEventsForDate(date) : [];
+            const isDragOver = dragOverDate && date && 
+              dragOverDate.getDate() === date.getDate() &&
+              dragOverDate.getMonth() === date.getMonth() &&
+              dragOverDate.getFullYear() === date.getFullYear();
             
             return (
               <div
@@ -161,9 +247,14 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
                     ? 'bg-gray-50 text-gray-400'
                     : isToday(date!)
                     ? 'bg-blue-50'
+                    : isDragOver
+                    ? 'bg-blue-100 border-blue-300'
                     : 'bg-white hover:bg-gray-50 cursor-pointer'
                 }`}
                 onClick={() => date && handleDateClick(date)}
+                onDragOver={(e) => date && handleDragOver(date, e)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => date && handleDrop(date, e)}
               >
                 {/* Date Number */}
                 <div className={`text-sm font-medium mb-1 ${
@@ -181,10 +272,14 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
                   {dayEvents.slice(0, 3).map((event) => (
                     <div
                       key={event.id}
-                      className="text-xs p-1 rounded truncate text-white font-medium cursor-pointer hover:opacity-80 transition-opacity relative group"
+                      className={`text-xs p-1 rounded truncate text-white font-medium cursor-pointer hover:opacity-80 transition-opacity relative group ${
+                        draggedEvent?.id === event.id ? 'opacity-50' : ''
+                      }`}
                       style={{ backgroundColor: event.color }}
                       title={`${event.title} - ${formatTime(event.date)}`}
                       onClick={(e) => handleEventClick(event, e)}
+                      draggable
+                      onDragStart={(e) => handleDragStart(event, e)}
                     >
                       {event.title}
                       <button
@@ -223,6 +318,7 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
         onUpdateEvent={handleUpdateEvent}
         onDeleteEvent={handleDeleteEvent}
         editingEvent={editingEvent}
+        existingEvents={events}
       />
 
       {/* Event Display Modal */}
@@ -236,6 +332,14 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
           }}
         />
       )}
+
+      {/* Toast Notifications */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+      />
     </div>
   );
 } 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { RecurrenceRule } from '@/utils/recurrenceUtils';
 
 export interface Event {
   id: string;
@@ -10,6 +11,7 @@ export interface Event {
   recurrence: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
   color: string;
   category?: string;
+  recurrenceRule?: RecurrenceRule;
 }
 
 interface AddEventModalProps {
@@ -20,6 +22,7 @@ interface AddEventModalProps {
   onUpdateEvent?: (event: Event) => void;
   onDeleteEvent?: (eventId: string) => void;
   editingEvent?: Event | null;
+  existingEvents?: Event[];
 }
 
 const EVENT_COLORS = [
@@ -40,6 +43,16 @@ const RECURRENCE_OPTIONS = [
   { value: 'custom', label: 'Custom' },
 ];
 
+const WEEKDAYS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
 export default function AddEventModal({ 
   isOpen, 
   onClose, 
@@ -47,7 +60,8 @@ export default function AddEventModal({
   onAddEvent, 
   onUpdateEvent, 
   onDeleteEvent,
-  editingEvent 
+  editingEvent,
+  existingEvents = []
 }: AddEventModalProps) {
   const isEditing = !!editingEvent;
   
@@ -60,6 +74,12 @@ export default function AddEventModal({
     category: '',
   });
 
+  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>({
+    type: 'none',
+  });
+
+  const [conflicts, setConflicts] = useState<Event[]>([]);
+
   // Update form data when editing event changes
   useEffect(() => {
     if (editingEvent) {
@@ -71,6 +91,7 @@ export default function AddEventModal({
         color: editingEvent.color,
         category: editingEvent.category || '',
       });
+      setRecurrenceRule(editingEvent.recurrenceRule || { type: 'none' });
     } else {
       setFormData({
         title: '',
@@ -80,8 +101,30 @@ export default function AddEventModal({
         color: '#3B82F6',
         category: '',
       });
+      setRecurrenceRule({ type: 'none' });
     }
   }, [editingEvent, selectedDate]);
+
+  // Check for conflicts when form data changes
+  useEffect(() => {
+    if (formData.title && formData.date) {
+      const newEvent: Event = {
+        id: editingEvent?.id || 'temp',
+        title: formData.title,
+        date: new Date(formData.date),
+        description: formData.description,
+        recurrence: formData.recurrence,
+        color: formData.color,
+        category: formData.category || undefined,
+        recurrenceRule,
+      };
+
+      // Import checkEventConflict function
+      const { checkEventConflict } = require('@/utils/recurrenceUtils');
+      const conflicts = checkEventConflict(newEvent, existingEvents, editingEvent?.id);
+      setConflicts(conflicts);
+    }
+  }, [formData, recurrenceRule, existingEvents, editingEvent?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +138,7 @@ export default function AddEventModal({
         recurrence: formData.recurrence,
         color: formData.color,
         category: formData.category || undefined,
+        recurrenceRule,
       };
       onUpdateEvent(updatedEvent);
     } else {
@@ -105,6 +149,7 @@ export default function AddEventModal({
         recurrence: formData.recurrence,
         color: formData.color,
         category: formData.category || undefined,
+        recurrenceRule,
       };
       onAddEvent(newEvent);
     }
@@ -126,6 +171,41 @@ export default function AddEventModal({
     }));
   };
 
+  const handleRecurrenceChange = (type: RecurrenceRule['type']) => {
+    setRecurrenceRule(prev => ({
+      ...prev,
+      type,
+    }));
+  };
+
+  const handleWeekdayToggle = (weekday: number) => {
+    setRecurrenceRule(prev => {
+      const weekdays = prev.weekdays || [];
+      const newWeekdays = weekdays.includes(weekday)
+        ? weekdays.filter(w => w !== weekday)
+        : [...weekdays, weekday];
+      
+      return {
+        ...prev,
+        weekdays: newWeekdays,
+      };
+    });
+  };
+
+  const handleIntervalChange = (interval: number) => {
+    setRecurrenceRule(prev => ({
+      ...prev,
+      interval,
+    }));
+  };
+
+  const handleEndDateChange = (endDate: string) => {
+    setRecurrenceRule(prev => ({
+      ...prev,
+      endDate: endDate ? new Date(endDate) : undefined,
+    }));
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -143,6 +223,16 @@ export default function AddEventModal({
               ×
             </button>
           </div>
+
+          {/* Conflict Warning */}
+          {conflicts.length > 0 && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-800 text-sm font-medium">⚠️ Event Conflict Detected</p>
+              <p className="text-red-700 text-xs mt-1">
+                This event conflicts with {conflicts.length} existing event(s) at the same time.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Event Title */}
@@ -199,7 +289,10 @@ export default function AddEventModal({
               <select
                 id="recurrence"
                 value={formData.recurrence}
-                onChange={(e) => handleInputChange('recurrence', e.target.value)}
+                onChange={(e) => {
+                  handleInputChange('recurrence', e.target.value);
+                  handleRecurrenceChange(e.target.value as RecurrenceRule['type']);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {RECURRENCE_OPTIONS.map((option) => (
@@ -209,6 +302,69 @@ export default function AddEventModal({
                 ))}
               </select>
             </div>
+
+            {/* Advanced Recurrence Options */}
+            {formData.recurrence !== 'none' && (
+              <div className="space-y-3 p-3 bg-gray-50 rounded-md">
+                {/* Weekly Day Selection */}
+                {formData.recurrence === 'weekly' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Days of Week
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map((day) => (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => handleWeekdayToggle(day.value)}
+                          className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                            recurrenceRule.weekdays?.includes(day.value)
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Interval */}
+                {formData.recurrence === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Interval
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={recurrenceRule.interval || 1}
+                      onChange={(e) => handleIntervalChange(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Every {recurrenceRule.interval || 1} {formData.recurrence === 'weekly' ? 'week(s)' : 'month(s)'}
+                    </p>
+                  </div>
+                )}
+
+                {/* End Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={recurrenceRule.endDate?.toISOString().slice(0, 10) || ''}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Event Color */}
             <div>
@@ -269,6 +425,7 @@ export default function AddEventModal({
               <button
                 type="submit"
                 className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                disabled={conflicts.length > 0}
               >
                 {isEditing ? 'Update Event' : 'Add Event'}
               </button>
