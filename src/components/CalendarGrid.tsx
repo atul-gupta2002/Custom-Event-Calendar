@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import AddEventModal, { Event } from './AddEventModal';
+import EventDisplay from './EventDisplay';
 
 interface CalendarGridProps {
   currentDate: Date;
@@ -9,6 +11,10 @@ interface CalendarGridProps {
 
 export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGridProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalDate, setModalDate] = useState(new Date());
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Get the first day of the current month
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -28,6 +34,16 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
     return date.getDate() === today.getDate() &&
            date.getMonth() === today.getMonth() &&
            date.getFullYear() === today.getFullYear();
+  };
+
+  // Get events for a specific date
+  const getEventsForDate = (date: Date) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate.getDate() === date.getDate() &&
+             eventDate.getMonth() === date.getMonth() &&
+             eventDate.getFullYear() === date.getFullYear();
+    });
   };
 
   // Generate calendar grid
@@ -57,13 +73,36 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
 
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
+    setModalDate(date);
+    setIsModalOpen(true);
     onDateSelect?.(date);
+  };
+
+  const handleEventClick = (event: Event, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent date click
+    setSelectedEvent(event);
+  };
+
+  const handleAddEvent = (eventData: Omit<Event, 'id'>) => {
+    const newEvent: Event = {
+      ...eventData,
+      id: Date.now().toString(), // Simple ID generation
+    };
+    setEvents(prev => [...prev, newEvent]);
   };
 
   const formatMonthYear = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
       month: 'long', 
       year: 'numeric' 
+    });
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
     });
   };
 
@@ -97,23 +136,72 @@ export default function CalendarGrid({ currentDate, onDateSelect }: CalendarGrid
 
         {/* Calendar Days */}
         <div className="grid grid-cols-7">
-          {calendarDays.map((date, index) => (
-            <div
-              key={index}
-              className={`p-3 text-center border border-gray-200 min-h-[80px] flex items-center justify-center ${
-                date === null
-                  ? 'bg-gray-50 text-gray-400'
-                  : isToday(date!)
-                  ? 'bg-blue-100 text-blue-800 font-bold'
-                  : 'bg-white text-gray-800 hover:bg-gray-50 cursor-pointer'
-              }`}
-              onClick={() => date && handleDateClick(date)}
-            >
-              {date ? date.getDate() : ''}
-            </div>
-          ))}
+          {calendarDays.map((date, index) => {
+            const dayEvents = date ? getEventsForDate(date) : [];
+            
+            return (
+              <div
+                key={index}
+                className={`p-2 border border-gray-200 min-h-[100px] ${
+                  date === null
+                    ? 'bg-gray-50 text-gray-400'
+                    : isToday(date!)
+                    ? 'bg-blue-50'
+                    : 'bg-white hover:bg-gray-50 cursor-pointer'
+                }`}
+                onClick={() => date && handleDateClick(date)}
+              >
+                {/* Date Number */}
+                <div className={`text-sm font-medium mb-1 ${
+                  date === null
+                    ? 'text-gray-400'
+                    : isToday(date!)
+                    ? 'text-blue-800 font-bold'
+                    : 'text-gray-800'
+                }`}>
+                  {date ? date.getDate() : ''}
+                </div>
+
+                {/* Events */}
+                <div className="space-y-1">
+                  {dayEvents.slice(0, 3).map((event) => (
+                    <div
+                      key={event.id}
+                      className="text-xs p-1 rounded truncate text-white font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ backgroundColor: event.color }}
+                      title={`${event.title} - ${formatTime(event.date)}`}
+                      onClick={(e) => handleEventClick(event, e)}
+                    >
+                      {event.title}
+                    </div>
+                  ))}
+                  {dayEvents.length > 3 && (
+                    <div className="text-xs text-gray-500 font-medium">
+                      +{dayEvents.length - 3} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* Add Event Modal */}
+      <AddEventModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        selectedDate={modalDate}
+        onAddEvent={handleAddEvent}
+      />
+
+      {/* Event Display Modal */}
+      {selectedEvent && (
+        <EventDisplay
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
     </div>
   );
 } 
